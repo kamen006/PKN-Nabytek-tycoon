@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PKN Nábytek - Garage & Factory Tycoon</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* HEADER */
+        header { background-color: #1e293b; border-bottom: 2px solid #334155; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .logo-box { display: flex; align-items: center; gap: 10px; }
+        .logo { background-color: #005a9c; color: white; font-weight: bold; font-size: 18px; padding: 5px 12px; border-radius: 6px; }
+        .building-tag { font-size: 12px; background: #f59e0b; color: #0f172a; font-weight: bold; padding: 4px 10px; border-radius: 12px; }
+
+        .stats-bar { display: flex; gap: 12px; }
+        .stat-card { background: #0f172a; border: 1px solid #334155; padding: 6px 14px; border-radius: 8px; text-align: center; }
+        .stat-title { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+        .stat-val { font-size: 15px; font-weight: bold; color: #4ade80; }
+
+        /* MAIN LAYOUT */
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+
+        /* LEFT: WORKSHOP & EMPLOYEES */
+        .left-panel { width: 350px; background-color: #1a2234; border-right: 1px solid #334155; padding: 15px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+
+        /* GARAGE / FACTORY GRAPHICAL CANVAS */
+        .visual-workshop { background: #334155; border: 2px solid #475569; border-radius: 10px; padding: 12px; position: relative; min-height: 180px; overflow: hidden; }
+        .workshop-title { font-size: 11px; text-transform: uppercase; font-weight: bold; color: #cbd5e1; margin-bottom: 8px; }
+        .visual-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .station { background: #1e293b; border: 1px dashed #64748b; border-radius: 6px; padding: 8px; text-align: center; font-size: 10px; color: #94a3b8; min-height: 50px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .station.active { border-style: solid; border-color: #38bdf8; color: #f8fafc; background: #0f172a; }
+        .worker-dot { width: 8px; h-8px; background: #f59e0b; border-radius: 50%; display: inline-block; margin-right: 4px; animation: pulse 1s infinite alternate; }
+        
+        @keyframes pulse { 0% { transform: scale(0.8); } 100% { transform: scale(1.2); } }
+
+        /* BUTTONS */
+        .craft-btn { background: linear-gradient(135deg, #005a9c, #0284c7); border: none; color: white; padding: 12px; font-size: 14px; font-weight: bold; border-radius: 8px; cursor: pointer; text-align: center; width: 100%; box-shadow: 0 4px 10px rgba(0,90,156,0.3); }
+        .craft-btn:active { transform: scale(0.97); }
+
+        .upgrade-btn { background: #d97706; color: white; border: none; padding: 10px; font-weight: bold; font-size: 12px; border-radius: 6px; cursor: pointer; width: 100%; }
+        .upgrade-btn:disabled { background: #475569; cursor: not-allowed; opacity: 0.5; }
+
+        /* TABS & RIGHT PANEL */
+        .right-panel { flex: 1; display: flex; flex-direction: column; background-color: #0f172a; }
+        .tabs-header { display: flex; background: #1e293b; border-bottom: 1px solid #334155; }
+        .tab-btn { padding: 12px 20px; background: none; border: none; color: #94a3b8; font-weight: bold; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { color: #38bdf8; border-bottom-color: #38bdf8; background: #0f172a; }
+
+        .tab-content { flex: 1; padding: 15px; overflow-y: auto; display: none; }
+        .tab-content.active { display: block; }
+
+        /* CARDS */
+        .item-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .item-card.locked { opacity: 0.4; }
+        .brand { font-size: 9px; font-weight: bold; padding: 2px 5px; border-radius: 3px; display: inline-block; margin-bottom: 4px; }
+        .brand-homag { background: #005a9c; color: white; }
+        .brand-barbaric { background: #d97706; color: white; }
+
+        .action-btn { background-color: #16a34a; border: none; color: white; font-weight: bold; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .action-btn:disabled { background-color: #475569; cursor: not-allowed; }
+
+        .section-title { font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; }
+        .activity-log { font-size: 11px; color: #38bdf8; background: #0f172a; padding: 8px; border-radius: 6px; border: 1px solid #334155; height: 60px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-box">
+            <span class="logo">PKN NÁBYTEK</span>
+            <span id="building-name" class="building-tag">🏠 1. Malá Garáž</span>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-title">Zaměstnanci</div>
+                <div id="stat-workers" class="stat-val" style="color:#f59e0b;">0 / 2</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Výkon haly</div>
+                <div id="stat-pps" class="stat-val" style="color:#38bdf8;">0 Kč/s</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Konto PKN</div>
+                <div id="stat-money" class="stat-val">500 Kč</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- LEFT PANEL -->
+        <div class="left-panel">
+            <!-- VISUAL GARAGE / WORKSHOP -->
+            <div class="visual-workshop">
+                <div class="workshop-title">Vizuální náhled budovy</div>
+                <div class="visual-grid">
+                    <div id="vis-hand" class="station active">🪚 Ruční stůl</div>
+                    <div id="vis-saw" class="station">🪓 Pila HOMAG</div>
+                    <div id="vis-edge" class="station">📏 Olepovačka</div>
+                    <div id="vis-storage" class="station">📦 Barbaric Sklad</div>
+                    <div id="vis-cnc" class="station">🤖 CNC Centateq</div>
+                    <div id="vis-exp" class="station">🚚 Expedice</div>
+                </div>
+            </div>
+
+            <!-- ACTIVITY LOG -->
+            <div class="section-title">Co zrovna dělají:</div>
+            <div id="activity-log" class="activity-log">
+                > Garáž je připravena. Začni vyrábět ručně!
+            </div>
+
+            <!-- MANUAL CRAFT & UPGRADE -->
+            <button class="craft-btn" onclick="manualCraft()">
+                🪚 Vyrobit nábytek ručně (+100 Kč)
+            </button>
+
+            <div style="margin-top: 10px;">
+                <button id="btn-upgrade-building" class="upgrade-btn" onclick="upgradeBuilding()">
+                    🏰 Rozšířit budovu (Na Malou Dílnu za 5 000 Kč)
+                </button>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL WITH TABS -->
+        <div class="right-panel">
+            <div class="tabs-header">
+                <button class="tab-btn active" onclick="switchTab('machines')">⚙️ Stroje (HOMAG & Barbaric)</button>
+                <button class="tab-btn" onclick="switchTab('workers')">👷 Nábor zaměstnanců</button>
+                <button class="tab-btn" onclick="switchTab('jobs')">📋 Výběr zakázek</button>
+            </div>
+
+            <!-- TAB 1: STROJE -->
+            <div id="tab-machines" class="tab-content active">
+                <div class="section-title">Dostupné stroje pro aktuální budovu</div>
+                <div id="machines-list"></div>
+            </div>
+
+            <!-- TAB 2: ZAMĚSTNANCI -->
+            <div id="tab-workers" class="tab-content">
+                <div class="section-title">Trh práce - Najmi truhláře a operátory</div>
+                <div id="workers-list"></div>
+            </div>
+
+            <!-- TAB 3: ZAKÁZKY -->
+            <div id="tab-jobs" class="tab-content">
+                <div class="section-title">Dostupné nabídky od zákazníků</div>
+                <div id="jobs-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            money: 500,
+            buildingLevel: 1, // 1: Garaz, 2: Mala dilna, 3: Stredni hala, 4: Zavad PKN
+            manualPower: 100,
+            workers: [],
+            maxWorkers: 2,
+            machines: {
+                saw_manual: { count: 0, price: 800, pps: 70, reqBuilding: 1, brand: "HOMAG", name: "Formátovací pila HOMAG", visId: "vis-saw" },
+                sawteq: { count: 0, price: 3000, pps: 250, reqBuilding: 2, brand: "HOMAG", name: "Nářezové centrum HOMAG SAWTEQ B-300", visId: "vis-saw" },
+                edgeteq: { count: 0, price: 9000, pps: 800, reqBuilding: 2, brand: "HOMAG", name: "Olepovačka hran HOMAG EDGETEQ S-500", visId: "vis-edge" },
+                barbaric_storage: { count: 0, price: 28000, pps: 2400, reqBuilding: 3, brand: "BARBARIC", name: "Skladový systém BARBARIC CSF", visId: "vis-storage" },
+                centateq: { count: 0, price: 85000, pps: 7200, reqBuilding: 3, brand: "HOMAG", name: "CNC centrum HOMAG CENTATEQ P-110", visId: "vis-cnc" },
+                barbaric_lifter: { count: 0, price: 200000, pps: 18000, reqBuilding: 4, brand: "BARBARIC", name: "Vakuový manipulátor BARBARIC B-Mover", visId: "vis-cnc" },
+                loopteq: { count: 0, price: 1000000, pps: 120000, reqBuilding: 4, brand: "HOMAG", name: "Automatizace HOMAG LOOPTEQ O-300", visId: "vis-exp" }
+            },
+            availableWorkers: [
+                { id: 1, name: "Jan Novák (Mladý truhlář)", speed: 1.1, wage: 150, hireCost: 500, desc: "Rychle se učí ruční práce a dělení na pile." },
+                { id: 2, name: "Petr Svoboda (Operátor CNC)", speed: 1.4, wage: 400, hireCost: 2000, desc: "Specialista na obsluhu strojů HOMAG CENTATEQ." },
+                { id: 3, name: "Karel Dvořák (Skladník Barbaric)", speed: 1.8, wage: 1000, hireCost: 8000, desc: "Mistr v automatické manipulaci s deskami." }
+            ],
+            availableJobs: [
+                { id: 101, client: "Soused Novotný", title: "Malá police do garáže", reward: 800, time: 5 },
+                { id: 102, client: "Kavárna U Kočky", title: "4x Dřevěný stůl", reward: 3500, time: 10 },
+                { id: 103, client: "Bytové družstvo", title: "Vestavěné skříně na míru", reward: 15000, time: 20 }
+            ],
+            activeJobs: []
+        };
+
+        const buildingNames = ["🏠 1. Malá Garáž", "🏚️ 2. Malá Dílna", "🏭 3. Střední Hala", "🏰 4. Velký Závod PKN"];
+        const buildingCosts = [0, 5000, 35000, 200000];
+
+        function calculatePPS() {
+            let total = 0;
+            for (let key in gameState.machines) {
+                let m = gameState.machines[key];
+                total += m.count * m.pps;
+            }
+            // Worker bonus
+            let workerMult = 1;
+            gameState.workers.forEach(w => workerMult += (w.speed - 1));
+            return total * workerMult;
+        }
+
+        function manualCraft() {
+            gameState.money += gameState.manualPower;
+            logActivity("Vyrobil jsi ručně dílec nábytku (+100 Kč).");
+            updateUI();
+        }
+
+        function buyMachine(key) {
+            let m = gameState.machines[key];
+            if (gameState.buildingLevel >= m.reqBuilding && gameState.money >= m.price) {
+                gameState.money -= m.price;
+                m.count++;
+                m.price = Math.floor(m.price * 1.25);
+                
+                let vEl = document.getElementById(m.visId);
+                if (vEl) vEl.classList.add('active');
+
+                logActivity(`Zakoupen stroj: ${m.name}`);
+                updateUI();
+            }
+        }
+
+        function hireWorker(workerId) {
+            if (gameState.workers.length >= gameState.maxWorkers) {
+                alert("Nemáš dost místa v budově pro dalšího zaměstnance! Rozšiř budovu.");
+                return;
+            }
+            let idx = gameState.availableWorkers.findIndex(w => w.id === workerId);
+            if (idx !== -1) {
+                let w = gameState.availableWorkers[idx];
+                if (gameState.money >= w.hireCost) {
+                    gameState.money -= w.hireCost;
+                    gameState.workers.push(w);
+                    gameState.availableWorkers.splice(idx, 1);
+                    logActivity(`Najat nový zaměstnanec: ${w.name}`);
+                    updateUI();
+                }
+            }
+        }
+
+        function acceptJob(jobId) {
+            if (gameState.activeJobs.length >= 2) {
+                alert("Můžeš mít naráz rozpracované maximálně 2 zakázky.");
+                return;
+            }
+            let idx = gameState.availableJobs.findIndex(j => j.id === jobId);
+            if (idx !== -1) {
+                let j = gameState.availableJobs[idx];
+                j.progress = 0;
+                gameState.activeJobs.push(j);
+                gameState.availableJobs.splice(idx, 1);
+                logActivity(`Přijata zakázka od: ${j.client}`);
+                updateUI();
+            }
+        }
+
+        function upgradeBuilding() {
+            let nextCost = buildingCosts[gameState.buildingLevel];
+            if (nextCost && gameState.money >= nextCost) {
+                gameState.money -= nextCost;
+                gameState.buildingLevel++;
+                gameState.maxWorkers += 2;
+                logActivity(`Budova rozšířena na: ${buildingNames[gameState.buildingLevel - 1]}`);
+                updateUI();
+            }
+        }
+
+        function logActivity(text) {
+            let el = document.getElementById('activity-log');
+            el.innerHTML = `> ${text}<br>` + el.innerHTML;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+
+        function renderMachines() {
+            let container = document.getElementById('machines-list');
+            container.innerHTML = '';
+
+            for (let key in gameState.machines) {
+                let m = gameState.machines[key];
+                let isUnlocked = gameState.buildingLevel >= m.reqBuilding;
+                let canAfford = isUnlocked && gameState.money >= m.price;
+                let brandClass = m.brand === 'HOMAG' ? 'brand-homag' : 'brand-barbaric';
+
+                let card = document.createElement('div');
+                card.className = `item-card ${isUnlocked ? '' : 'locked'}`;
+                card.innerHTML = `
+                    <div>
+                        <span class="brand ${brandClass}">${m.brand}</span>
+                        <h4 style="font-size:14px;">${m.name} (Vlastněno: ${m.count})</h4>
+                        <p style="font-size:11px; color:#94a3b8;">Výkon: +${m.pps} Kč/s</p>
+                    </div>
+                    <div>
+                        <button class="action-btn" ${canAfford ? '' : 'disabled'} onclick="buyMachine('${key}')">
+                            ${isUnlocked ? `Koupit (${m.price.toLocaleString()} Kč)` : `Vyžaduje Lvl ${m.reqBuilding}`}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+        }
+
+        function renderWorkers() {
+            let container = document.getElementById('workers-list');
+            container.innerHTML = '';
+
+            if (gameState.availableWorkers.length === 0) {
+                container.innerHTML = '<div style="font-size:12px; color:#64748b;">Žádní další kandidáti na trhu práce.</div>';
+            }
+
+            gameState.availableWorkers.forEach(w => {
+                let card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `
+                    <div>
+                        <h4 style="font-size:14px; color:#f8fafc;">${w.name}</h4>
+                        <p style="font-size:11px; color:#94a3b8;">${w.desc}</p>
+                        <p style="font-size:11px; color:#38bdf8;">Rychlost: +${Math.round((w.speed-1)*100)}% | Plat: ${w.wage} Kč/min</p>
+                    </div>
+                    <div>
+                        <button class="action-btn" ${gameState.money >= w.hireCost ? '' : 'disabled'} onclick="hireWorker(${w.id})">
+                            Najmout (${w.hireCost.toLocaleString()} Kč)
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderJobs() {
+            let container = document.getElementById('jobs-list');
+            container.innerHTML = '';
+
+            gameState.availableJobs.forEach(j => {
+                let card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `
+                    <div>
+                        <h4 style="font-size:13px; color:#f8fafc;">${j.title} (${j.client})</h4>
+                        <p style="font-size:11px; color:#4ade80;">Odměna: +${j.reward.toLocaleString()} Kč</p>
+                    </div>
+                    <div>
+                        <button class="action-btn" onclick="acceptJob(${j.id})">Přijmout zakázku</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('stat-money').innerText = Math.floor(gameState.money).toLocaleString() + " Kč";
+            document.getElementById('stat-pps').innerText = Math.floor(calculatePPS()).toLocaleString() + " Kč/s";
+            document.getElementById('stat-workers').innerText = `${gameState.workers.length} / ${gameState.maxWorkers}`;
+            document.getElementById('building-name').innerText = buildingNames[gameState.buildingLevel - 1];
+
+            let btnUpg = document.getElementById('btn-upgrade-building');
+            let nextCost = buildingCosts[gameState.buildingLevel];
+            if (nextCost) {
+                btnUpg.innerText = `🏰 Rozšířit budovu (${buildingNames[gameState.buildingLevel]} za ${nextCost.toLocaleString()} Kč)`;
+                btnUpg.disabled = gameState.money < nextCost;
+            } else {
+                btnUpg.innerText = "🏰 Závod na Maximální Úrovni";
+                btnUpg.disabled = true;
+            }
+
+            renderMachines();
+            renderWorkers();
+            renderJobs();
+        }
+
+        // TICK LOOP
+        let lastTick = Date.now();
+        setInterval(() => {
+            let now = Date.now();
+            let dt = (now - lastTick) / 1000;
+            lastTick = now;
+
+            let pps = calculatePPS();
+            gameState.money += pps * dt;
+
+            // Job progress
+            if (pps > 0 && gameState.activeJobs.length > 0) {
+                gameState.activeJobs.forEach((job, idx) => {
+                    job.progress = (job.progress || 0) + dt;
+                    if (job.progress >= job.time) {
+                        gameState.money += job.reward;
+                        logActivity(`DOKONČENO: ${job.title} (+${job.reward.toLocaleString()} Kč)`);
+                        gameState.activeJobs.splice(idx, 1);
+                    }
+                });
+            }
+
+            // Random live actions in log
+            if (gameState.workers.length > 0 && Math.random() < 0.03) {
+                let randomWorker = gameState.workers[Math.floor(Math.random() * gameState.workers.length)];
+                let actions = ["řeže dílce na pile HOMAG", "olepuje hranu na EDGETEQ", "manipuluje s deskou na Barbaric LHB", "kontroluje výkresy"];
+                logActivity(`${randomWorker.name} právě ${actions[Math.floor(Math.random()*actions.length)]}.`);
+            }
+
+            updateUI();
+        }, 100);
+
+        window.onload = () => {
+            updateUI();
+        };
+    </script>
+</body>
+</html>
