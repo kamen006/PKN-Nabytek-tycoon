@@ -4,99 +4,240 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PKN Nábytek - HOMAG Tycoon</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Tone.js for Sound Effects -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <!-- Canvas Confetti -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-            user-select: none;
-        }
+        /* HEADER */
+        header { background-color: #1e293b; border-bottom: 2px solid #334155; padding: 15px 25px; display: flex; justify-content: space-between; items-center; }
+        .logo { background-color: #005a9c; color: white; font-weight: bold; font-size: 22px; padding: 6px 14px; border-radius: 6px; letter-spacing: 1px; display: inline-block; }
+        .partner-tag { font-size: 11px; background: #0f172a; color: #38bdf8; padding: 4px 10px; border-radius: 12px; margin-left: 10px; border: 1px solid #005a9c; }
+        .stats-bar { display: flex; gap: 20px; }
+        .stat-card { background-color: #0f172a; border: 1px solid #334155; padding: 6px 16px; border-radius: 8px; text-align: center; }
+        .stat-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+        .stat-value { font-size: 18px; font-weight: bold; color: #4ade80; }
 
-        .font-tech {
-            font-family: 'Chakra Petch', sans-serif;
-        }
+        /* LAYOUT */
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        .left-panel { width: 350px; background-color: #1a2234; border-right: 1px solid #334155; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        .right-panel { flex: 1; padding: 20px; overflow-y: auto; background-color: #0f172a; }
 
-        /* Homag Blue & Orange Theme */
-        .homag-blue { color: #005a9c; }
-        .bg-homag-blue { background-color: #005a9c; }
-        .border-homag-blue { border-color: #005a9c; }
+        /* BUTTONS & CARDS */
+        .craft-btn { background: linear-gradient(135deg, #005a9c, #0284c7); border: none; color: white; padding: 20px; font-size: 18px; font-weight: bold; border-radius: 12px; cursor: pointer; transition: transform 0.1s, background 0.2s; box-shadow: 0 4px 12px rgba(0,90,156,0.4); text-align: center; }
+        .craft-btn:active { transform: scale(0.97); }
+        .craft-btn:hover { background: linear-gradient(135deg, #0284c7, #38bdf8); }
+
+        .machine-card { background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .machine-info h4 { font-size: 16px; color: #f8fafc; margin-bottom: 4px; }
+        .machine-info p { font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
+        .machine-stats { font-size: 12px; color: #38bdf8; font-weight: bold; }
         
-        .homag-orange { color: #e30613; } /* Homag/Grant accents */
-        .bg-homag-orange { background-color: #ff6b00; }
+        .buy-btn { background-color: #16a34a; border: none; color: white; font-weight: bold; padding: 10px 16px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .buy-btn:hover { background-color: #22c55e; }
+        .buy-btn:disabled { background-color: #475569; cursor: not-allowed; opacity: 0.6; }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #1e293b;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #475569;
-        }
+        .job-card { background-color: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+        .progress-bar { width: 100%; height: 6px; background-color: #334155; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+        .progress-fill { height: 100%; background-color: #f59e0b; width: 0%; transition: width 0.1s linear; }
 
-        /* Animations */
-        @keyframes pulse-subtle {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.95; transform: scale(0.99); }
-        }
-        .working-machine {
-            animation: pulse-subtle 1.5s infinite ease-in-out;
-        }
-
-        .floating-text {
-            position: absolute;
-            animation: floatUp 1s ease-out forwards;
-            pointer-events: none;
-            font-weight: bold;
-            font-family: 'Chakra Petch', sans-serif;
-            z-index: 50;
-        }
-
-        @keyframes floatUp {
-            0% { opacity: 1; transform: translateY(0) scale(1); }
-            100% { opacity: 0; transform: translateY(-50px) scale(1.2); }
-        }
-
-        /* Saw animation */
-        @keyframes sawBlade {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .spinning-saw {
-            animation: sawBlade 0.4s linear infinite;
-        }
+        .section-title { font-size: 14px; color: #94a3b8; text-transform: uppercase; font-weight: bold; margin-bottom: 10px; }
     </style>
 </head>
-<body class="h-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100">
+<body>
 
-    <!-- TOP HEADER / NAVBAR -->
-    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex justify-between items-center z-10 shadow-lg">
-        <div class="flex items-center space-x-4">
-            <div class="bg-blue-600 text-white font-tech font-bold text-2xl px-3 py-1 rounded shadow tracking-wider flex items-center gap-2">
-                <i class="fa-solid font-bold text-xl fa-industry"></i>
-                <span>PKN NÁBYTEK</span>
+    <header>
+        <div>
+            <span class="logo">PKN NÁBYTEK</span>
+            <span class="partner-tag">OFFICIAL PARTNER HOMAG GROUP</span>
+        </div>
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-label">Konto PKN</div>
+                <div id="money" class="stat-value">500 Kč</div>
             </div>
-            <span class="text-xs bg-slate-800 text-blue-400 px-2.5 py-1 rounded-full border border-blue-900/50 font-tech uppercase tracking-wider">
-                Official Partner HOMAG Group
-            </span>
+            <div class="stat-card">
+                <div class="stat-label">Výkon haly</div>
+                <div id="pps" class="stat-value" style="color: #38bdf8;">0 Kč/s</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Reputace</div>
+                <div id="rep" class="stat-value" style="color: #f59e0b;">10</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- LEFT PANEL -->
+        <div class="left-panel">
+            <div class="section-title">Ruční výroba</div>
+            <button class="craft-btn" onclick="manualCraft()">
+                🪚 Vyrobit dílec ručně<br>
+                <span style="font-size: 13px; font-weight: normal; opacity: 0.9;">(+100 Kč)</span>
+            </button>
+
+            <div class="section-title" style="margin-top: 10px;">Aktivní zakázky</div>
+            <div id="jobs-list">
+                <!-- Dynamické zakázky -->
+            </div>
         </div>
 
-        <!-- STATS BAR -->
-        <div class="flex items-center space-x-8 font-tech">
-            <!-- MONEY -->
-            <div class="flex items-center gap-3 bg-slate-950/60 px-4 py-1.5 rounded-lg border border-slate-8
+        <!-- RIGHT PANEL -->
+        <div class="right-panel">
+            <div class="section-title">Stroje a Technologie HOMAG</div>
+            <div id="machines-list">
+                <!-- Dynamické stroje -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            money: 500,
+            reputation: 10,
+            manualPower: 100,
+            machines: {
+                sawteq: { count: 0, basePrice: 1000, pps: 80, name: "Nářezové centrum HOMAG SAWTEQ B-300", desc: "Přesné dělení plošného materiálu s minimálním odpadem." },
+                edgeteq: { count: 0, basePrice: 5000, pps: 450, name: "Olepovačka hran HOMAG EDGETEQ S-500", desc: "Bezspárové olepování hran s technologií airTec." },
+                centateq: { count: 0, basePrice: 25000, pps: 2200, name: "CNC centrum HOMAG CENTATEQ P-110", desc: "5-osé CNC frézování a vrtání pro tvarové dílce." },
+                loopteq: { count: 0, basePrice: 100000, pps: 9000, name: "Automatizace HOMAG LOOPTEQ O-300", desc: "Robotická manipulace s materiálem a automatický návrat." }
+            },
+            jobs: []
+        };
+
+        function calculatePPS() {
+            let total = 0;
+            for (let key in gameState.machines) {
+                let m = gameState.machines[key];
+                total += m.count * m.pps;
+            }
+            return total;
+        }
+
+        function manualCraft() {
+            gameState.money += gameState.manualPower;
+            updateUI();
+        }
+
+        function buyMachine(key) {
+            let m = gameState.machines[key];
+            let price = Math.floor(m.basePrice * Math.pow(1.2, m.count));
+            if (gameState.money >= price) {
+                gameState.money -= price;
+                m.count++;
+                updateUI();
+                renderMachines();
+            }
+        }
+
+        function renderMachines() {
+            let container = document.getElementById('machines-list');
+            container.innerHTML = '';
+
+            for (let key in gameState.machines) {
+                let m = gameState.machines[key];
+                let price = Math.floor(m.basePrice * Math.pow(1.2, m.count));
+                let canAfford = gameState.money >= price;
+
+                let card = document.createElement('div');
+                card.className = 'machine-card';
+                card.innerHTML = `
+                    <div class="machine-info">
+                        <h4>${m.name} <span style="color:#005a9c;">(Vlastněno: ${m.count})</span></h4>
+                        <p>${m.desc}</p>
+                        <div class="machine-stats">+${(m.pps * (m.count + 1)).toLocaleString()} Kč/s</div>
+                    </div>
+                    <div>
+                        <button class="buy-btn" ${canAfford ? '' : 'disabled'} onclick="buyMachine('${key}')">
+                            Koupit za ${price.toLocaleString()} Kč
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+        }
+
+        function generateJob() {
+            if (gameState.jobs.length >= 3) return;
+            let job = {
+                id: Date.now(),
+                name: "Zakázka: " + ["Kuchyňská linka", "Vestavěná skříň", "Kanceláře", "Recepce hotelu"][Math.floor(Math.random()*4)],
+                reward: Math.floor(2000 + Math.random() * 8000),
+                duration: 8,
+                progress: 0
+            };
+            gameState.jobs.push(job);
+            renderJobs();
+        }
+
+        function renderJobs() {
+            let container = document.getElementById('jobs-list');
+            container.innerHTML = '';
+            
+            if (gameState.jobs.length === 0) {
+                container.innerHTML = '<div style="font-size:12px; color:#64748b; text-align:center;">Čekání na zákazníky...</div>';
+                return;
+            }
+
+            gameState.jobs.forEach(job => {
+                let card = document.createElement('div');
+                card.className = 'job-card';
+                card.innerHTML = `
+                    <div style="display:flex; justify-between; font-size:13px; font-weight:bold;">
+                        <span>${job.name}</span>
+                        <span style="color:#4ade80;">+${job.reward.toLocaleString()} Kč</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="job-progress-${job.id}" class="progress-fill"></div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('money').innerText = Math.floor(gameState.money).toLocaleString() + " Kč";
+            document.getElementById('pps').innerText = Math.floor(calculatePPS()).toLocaleString() + " Kč/s";
+            document.getElementById('rep').innerText = gameState.reputation;
+            renderMachines();
+        }
+
+        // Main Loop
+        let lastTick = Date.now();
+        setInterval(() => {
+            let now = Date.now();
+            let dt = (now - lastTick) / 1000;
+            lastTick = now;
+
+            // Income
+            let pps = calculatePPS();
+            gameState.money += pps * dt;
+
+            // Jobs
+            if (pps > 0) {
+                for (let i = gameState.jobs.length - 1; i >= 0; i--) {
+                    let job = gameState.jobs[i];
+                    job.progress += dt;
+                    let el = document.getElementById(`job-progress-${job.id}`);
+                    if (el) {
+                        el.style.width = Math.min(100, (job.progress / job.duration) * 100) + '%';
+                    }
+                    if (job.progress >= job.duration) {
+                        gameState.money += job.reward;
+                        gameState.jobs.splice(i, 1);
+                        renderJobs();
+                    }
+                }
+            }
+
+            updateUI();
+        }, 100);
+
+        setInterval(generateJob, 6000);
+
+        window.onload = () => {
+            updateUI();
+            generateJob();
+        };
+    </script>
+</body>
+</html>
