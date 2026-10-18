@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PKN Nábytek - HOMAG 3D Tycoon</title>
+    <!-- Načtení 3D enginu Three.js a ovladače pro otáčení ze všech stran -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: background-color 1s; }
+        body.night { background-color: #020617; }
+
+        /* HEADER */
+        header { background-color: #1e293b; border-bottom: 2px solid #334155; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        .logo-box { display: flex; align-items: center; gap: 10px; }
+        .logo { background-color: #005a9c; color: white; font-weight: bold; font-size: 18px; padding: 5px 12px; border-radius: 6px; }
+        .building-tag { font-size: 12px; background: #f59e0b; color: #0f172a; font-weight: bold; padding: 4px 10px; border-radius: 12px; }
+
+        .time-box { background: #0f172a; border: 1px solid #38bdf8; padding: 4px 12px; border-radius: 8px; text-align: center; }
+        .time-clock { font-size: 15px; font-weight: bold; color: #38bdf8; }
+        .shift-tag { font-size: 10px; color: #f59e0b; font-weight: bold; }
+
+        .stats-bar { display: flex; gap: 10px; }
+        .stat-card { background: #0f172a; border: 1px solid #334155; padding: 6px 12px; border-radius: 8px; text-align: center; }
+        .stat-title { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+        .stat-val { font-size: 14px; font-weight: bold; color: #4ade80; }
+
+        /* LAYOUT */
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+
+        /* LEFT PANEL */
+        .left-panel { width: 340px; background-color: #1a2234; border-right: 1px solid #334155; padding: 15px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 10; }
+
+        /* NOTIFICATION POPUP OVERLAY */
+        .bill-popup { display: none; position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 3px solid #f59e0b; border-radius: 10px; padding: 20px; width: 350px; text-align: center; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .power-outage-overlay { display: none; position: absolute; inset: 0; background: rgba(239, 68, 68, 0.9); color: white; font-weight: bold; font-size: 16px; text-align: center; padding-top: 180px; border-radius: 8px; z-index: 20; }
+
+        /* BUTTONS */
+        .craft-btn { background: linear-gradient(135deg, #005a9c, #0284c7); border: none; color: white; padding: 14px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; text-align: center; width: 100%; box-shadow: 0 4px 10px rgba(0,90,156,0.3); }
+        .craft-btn:active { transform: scale(0.96); }
+
+        /* RIGHT PANEL WITH TABS */
+        .right-panel { flex: 1; display: flex; flex-direction: column; background-color: #0f172a; position: relative; overflow: hidden; }
+        .tabs-header { display: flex; background: #1e293b; border-bottom: 1px solid #334155; z-index: 10; }
+        .tab-btn { padding: 12px 16px; background: none; border: none; color: #94a3b8; font-weight: bold; font-size: 12px; cursor: pointer; border-bottom: 3px solid transparent; }
+        .tab-btn.active { color: #38bdf8; border-bottom-color: #38bdf8; background: #0f172a; }
+
+        .tab-content { flex: 1; padding: 15px; overflow-y: auto; display: none; z-index: 5; }
+        .tab-content.active { display: block; }
+
+        /* 3D WEBGL VIEW CONTAINER */
+        #tab-factory { padding: 0; position: relative; width: 100%; height: 100%; overflow: hidden; background: #090d16; cursor: grab; }
+        #tab-factory:active { cursor: grabbing; }
+        #webgl-container { width: 100%; height: 100%; display: block; }
+
+        /* CARDS */
+        .item-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .item-card.locked { opacity: 0.4; }
+        .brand { font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 4px; }
+        .brand-homag { background: #005a9c; color: white; }
+        .brand-barbaric { background: #d97706; color: white; }
+
+        .action-btn { background-color: #16a34a; border: none; color: white; font-weight: bold; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .action-btn:hover { background-color: #22c55e; }
+        .action-btn:disabled { background-color: #475569; cursor: not-allowed; opacity: 0.5; }
+
+        .section-title { font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; }
+        .activity-log { font-size: 11px; color: #38bdf8; background: #0f172a; padding: 8px; border-radius: 6px; border: 1px solid #334155; height: 120px; overflow-y: auto; }
+
+        .bank-box { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <!-- NOTIFIKACE NA MĚSÍČNÍ FAKTURU -->
+    <div id="billPopup" class="bill-popup">
+        <h3 style="color:#f59e0b; margin-bottom:8px;">⚠️ Měsíční vyúčtování faktury</h3>
+        <p style="font-size:13px; color:#cbd5e1; margin-bottom:12px;">Měsíc skončil! Přišla nová faktura za elektřinu a nájem ve výši <b id="popup-amount" style="color:#ef4444;">0 Kč</b>. Uhraď ji v bance, jinak hrozí odpojení proudu!</p>
+        <button class="action-btn" style="background-color:#0284c7; width:100%;" onclick="closeBillPopup()">Rozumím, jdu zaplatit</button>
+    </div>
+
+    <header>
+        <div class="logo-box">
+            <span class="logo">PKN NÁBYTEK</span>
+            <span id="building-name" class="building-tag">🏠 1. Garáž (Vlastní)</span>
+        </div>
+
+        <div class="time-box">
+            <div id="clock" class="time-clock">1. Leden | 08:00</div>
+            <div id="shift-name" class="shift-tag">☀️ Ranní směna</div>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-title">Zaměstnanci</div>
+                <div id="stat-workers" class="stat-val" style="color:#f59e0b;">0 / 2</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Výkon haly</div>
+                <div id="stat-pps" class="stat-val" style="color:#38bdf8;">0 Kč/s</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Konto PKN</div>
+                <div id="stat-money" class="stat-val">500 Kč</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- LEFT PANEL -->
+        <div class="left-panel">
+            <div class="section-title">Řízení výroby</div>
+            
+            <button class="craft-btn" onclick="manualCraft()">
+                🪚 Vyrobit nábytek ručně (+100 Kč)
+            </button>
+
+            <div class="section-title" style="margin-top: 15px;">Dění v podniku:</div>
+            <div id="activity-log" class="activity-log">
+                > 3D hala je plně otočná. Můžeš si ji otáčet myší ze všech stran!
+            </div>
+
+            <div class="section-title" style="margin-top: 15px;">Aktivní zakázky:</div>
+            <div id="active-jobs-list"></div>
+        </div>
+
+        <!-- RIGHT PANEL WITH TABS -->
+        <div class="right-panel">
+            <div class="tabs-header">
+                <button id="btn-tab-factory" class="tab-btn active" onclick="switchTab('factory')">🏢 3D Interaktivní Hala (Otočná)</button>
+                <button id="btn-tab-machines" class="tab-btn" onclick="switchTab('machines')">⚙️ Stroje</button>
+                <button id="btn-tab-workers" class="tab-btn" onclick="switchTab('workers')">👷 Zaměstnanci</button>
+                <button id="btn-tab-jobs" class="tab-btn" onclick="switchTab('jobs')">📋 Zakázky</button>
+                <button id="btn-tab-building" class="tab-btn" onclick="switchTab('building')">🏰 Budovy & Rozvoj</button>
+                <button id="btn-tab-bank" class="tab-btn" onclick="switchTab('bank')">🏦 Banka & Faktury</button>
+            </div>
+
+            <!-- TAB 0: 3D THREE.JS FACTORY VIEW -->
+            <div id="tab-factory" class="tab-content active" style="padding:0; height:100%;">
+                <div id="power-overlay" class="power-outage-overlay">
+                    ⚠️ VYPNUTÝ PROUD!<br>Nezaplacená měsíční faktura v Bance!
+                </div>
+                <div id="webgl-container"></div>
+            </div>
+
+            <!-- TAB 1: STROJE -->
+            <div id="tab-machines" class="tab-content">
+                <div class="section-title">Strojový park - HOMAG & BARBARIC</div>
+                <div id="machines-list"></div>
+            </div>
+
+            <!-- TAB 2: ZAMĚSTNANCI -->
+            <div id="tab-workers" class="tab-content">
+                <div class="section-title">Nábor zaměstnanců na trhu práce</div>
+                <div id="workers-list"></div>
+            </div>
+
+            <!-- TAB 3: ZAKÁZKY -->
+            <div id="tab-jobs" class="tab-content">
+                <div class="section-title">Nabídky zakázek</div>
+                <div id="jobs-list"></div>
+            </div>
+
+            <!-- TAB 4: BUDOVY -->
+            <div id="tab-building" class="tab-content">
+                <div class="section-title">Výběr nové budovy (Koupě vs. Pronájem)</div>
+                <div id="building-options"></div>
+            </div>
+
+            <!-- TAB 5: BANKA -->
+            <div id="tab-bank" class="tab-content">
+                <div class="section-title">Finanční centrum PKN & Faktury</div>
+                
+                <div class="bank-box">
+                    <h4 style="color:#ef4444; margin-bottom:8px;">⚡ Měsíční faktura (Elektřina + Nájem)</h4>
+                    <p style="font-size:12px; color:#cbd5e1;">Dluh na faktuře: <b id="bill-unpaid" style="color:#ef4444;">0 Kč</b></p>
+                    <p style="font-size:11px; color:#94a3b8; margin-bottom:10px;">Faktura chodí na konci každého kalendářního měsíce (15 minut).</p>
+                    <button class="action-btn" style="background-color:#0284c7;" onclick="payBill()">💳 Zaplatit fakturu</button>
+                </div>
+
+                <div class="bank-box">
+                    <h4 style="color:#4ade80; margin-bottom:8px;">💰 Bankovní půjčka PKN</h4>
+                    <p style="font-size:12px; color:#cbd5e1;">Aktivní dlužná částka: <b id="loan-current" style="color:#ef4444;">0 Kč</b></p>
+                    <p style="font-size:12px; color:#cbd5e1;">Max. limit půjčky: <b id="loan-limit" style="color:#38bdf8;">10 000 Kč</b></p>
+                    
+                    <div style="display:flex; gap:10px; margin-top:12px;">
+                        <button class="action-btn" onclick="takeLoan(5000)">Půjčit 5 000 Kč</button>
+                        <button class="action-btn" onclick="takeLoan(10000)">Půjčit 10 000 Kč</button>
+                        <button class="action-btn" style="background-color:#d97706;" onclick="payLoan(2000)">Splatit 2 000 Kč</button>
+                        <button class="action-btn" style="background-color:#b91c1c;" onclick="payLoan('full')">Splatit vše</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const monthsList = [
+            { name: "Leden", days: 31 }, { name: "Únor", days: 28 }, { name: "Březen", days: 31 },
+            { name: "Duben", days: 30 }, { name: "Květen", days: 31 }, { name: "Červen", days: 30 },
+            { name: "Červenec", days: 31 }, { name: "Srpen", days: 31 }, { name: "Září", days: 30 },
+            { name: "Říjen", days: 31 }, { name: "Listopad", days: 30 }, { name: "Prosinec", days: 31 }
+        ];
+
+        let gameState = {
+            money: 500,
+            buildingLevel: 1,
+            isRented: false,
+            hasPower: true,
+            monthIndex: 0,
+            day: 1,
+            hour: 8,
+            minute: 0,
+            unpaidBill: 0,
+            workers: [],
+            loan: 0,
+            machines: {
+                saw_manual: { count: 0, price: 800, pps: 70, elec: 30, reqLevel: 1, category: "saw", brand: "HOMAG", name: "Formátovací pila HOMAG", x: -2, z: -1, color: 0x0284c7 },
+                sawteq: { count: 0, price: 3000, pps: 250, elec: 100, reqLevel: 2, category: "saw", brand: "HOMAG", name: "Nářezové centrum SAWTEQ", x: 1, z: -2, color: 0x005a9c },
+                barbaric_storage: { count: 0, price: 28000, pps: 2400, elec: 700, reqLevel: 3, category: "saw", brand: "BARBARIC", name: "Skladový systém", x: -4, z: -3, color: 0xd97706 },
+                edgeteq: { count: 0, price: 9000, pps: 800, elec: 250, reqLevel: 2, category: "edge", brand: "HOMAG", name: "Olepovačka EDGETEQ", x: 2, z: 1, color: 0x005a9c },
+                centateq: { count: 0, price: 85000, pps: 7200, elec: 2000, reqLevel: 3, category: "cnc", brand: "HOMAG", name: "CNC CENTATEQ", x: 4, z: 3, color: 0xf59e0b }
+            },
+            availableWorkers: [
+                { id: 1, name: "Jan Novák", init: "JN", wage: 220, speed: 1.2, hireCost: 500 },
+                { id: 2, name: "Petr Svoboda", init: "PS", wage: 380, speed: 1.5, hireCost: 2500 },
+                { id: 3, name: "Karel Dvořák", init: "KD", wage: 650, speed: 2.0, hireCost: 10000 }
+            ],
+            availableJobs: [
+                { id: 101, client: "Soused Novotný", title: "Police do garáže", reward: 800, duration: 20 },
+                { id: 102, client: "Kavárna U Kočky", title: "4x Stůl z lamina", reward: 3500, duration: 40 },
+                { id: 103, client: "Bytové družstvo", title: "Vestavěná skříň PKN", reward: 15000, duration: 80 }
+            ],
+            activeJobs: []
+        };
+
+        const buildingsData = [
+            { level: 1, name: "🏠 1. Garáž", buyPrice: 0, rentPrice: 0, maxWorkers: 2, caps: { saw: 1, edge: 1, cnc: 0 } },
+            { level: 2, name: "🏚️ 2. Malá Dílna", buyPrice: 20000, rentPrice: 1500, maxWorkers: 4, caps: { saw: 2, edge: 2, cnc: 1 } },
+            { level: 3, name: "🏭 3. Střední Hala", buyPrice: 100000, rentPrice: 6000, maxWorkers: 8, caps: { saw: 3, edge: 3, cnc: 3 } },
+            { level: 4, name: "🏰 4. Velký Závod PKN", buyPrice: 500000, rentPrice: 25000, maxWorkers: 15, caps: { saw: 5, edge: 5, cnc: 5 } }
+        ];
+
+        function getCategoryCount(cat) {
+            let total = 0;
+            for (let k in gameState.machines) {
+                if (gameState.machines[k].category === cat) total += gameState.machines[k].count;
+            }
+            return total;
+        }
+
+        function calculateElecCost() {
+            let total = 50;
+            for (let key in gameState.machines) total += gameState.machines[key].count * gameState.machines[key].elec;
+            return total;
+        }
+
+        function calculatePPS() {
+            if (!gameState.hasPower) return 0;
+            let total = 0;
+            for (let key in gameState.machines) total += gameState.machines[key].count * gameState.machines[key].pps;
+            let mult = 1;
+            gameState.workers.forEach(w => mult += (w.speed - 1));
+            return total * mult;
+        }
+
+        function manualCraft() {
+            gameState.money += 100;
+            logActivity("Vyrobil jsi dílec ručně (+100 Kč).");
+            updateUI();
+        }
+
+        function buyMachine(key) {
+            let m = gameState.machines[key];
+            let currentB = buildingsData[gameState.buildingLevel - 1];
+            if (getCategoryCount(m.category) >= currentB.caps[m.category]) {
+                alert(`Stanoviště ${m.category.toUpperCase()} je v této budově plné! Rozšiř budovu.`);
+                return;
+            }
+            if (gameState.buildingLevel >= m.reqLevel && gameState.money >= m.price) {
+                gameState.money -= m.price;
+                m.count++;
+                m.price = Math.floor(m.price * 1.3);
+                logActivity(`Zakoupen stroj: ${m.name}`);
+                updateUI();
+                rebuild3DScene();
+            }
+        }
+
+        function hireWorker(workerId) {
+            let currentB = buildingsData[gameState.buildingLevel - 1];
+            if (gameState.workers.length >= currentB.maxWorkers) {
+                alert("Nemáš v budově místo pro dalšího zaměstnance!");
+                return;
+            }
+            let idx = gameState.availableWorkers.findIndex(w => w.id === workerId);
+            if (idx !== -1) {
+                let w = gameState.availableWorkers[idx];
+                if (gameState.money >= w.hireCost) {
+                    gameState.money -= w.hireCost;
+                    gameState.workers.push(w);
+                    gameState.availableWorkers.splice(idx, 1);
+                    logActivity(`Najat zaměstnanec: ${w.name}`);
+                    updateUI();
+                    rebuild3DScene();
+                }
+            }
+        }
+
+        function acceptJob(jobId) {
+            if (gameState.activeJobs.length >= 2) { alert("Můžeš mít naráz rozpracované maximálně 2 zakázky."); return; }
+            let idx = gameState.availableJobs.findIndex(j => j.id === jobId);
+            if (idx !== -1) {
+                let j = gameState.availableJobs[idx];
+                j.progress = 0;
+                gameState.activeJobs.push(j);
+                gameState.availableJobs.splice(idx, 1);
+                logActivity(`Přijata zakázka: ${j.title}`);
+                updateUI();
+            }
+        }
+
+        function payBill() {
+            if (gameState.unpaidBill <= 0) { alert("Nemáš žádné nezaplacené faktury."); return; }
+            if (gameState.money >= gameState.unpaidBill) {
+                gameState.money -= gameState.unpaidBill;
+                logActivity(`Uhradil jsi fakturu: -${gameState.unpaidBill.toLocaleString()} Kč.`);
+                gameState.unpaidBill = 0;
+                gameState.hasPower = true;
+                document.getElementById('power-overlay').style.display = 'none';
+                updateUI();
+            } else { alert("Nemáš dostatek peněz na zaplacení faktury!"); }
+        }
+
+        function closeBillPopup() { document.getElementById('billPopup').style.display = 'none'; }
+
+        function upgradeBuildingChoice(targetLevel, isRent) {
+            let b = buildingsData[targetLevel - 1];
+            let price = isRent ? b.rentPrice : b.buyPrice;
+            if (gameState.money >= price) {
+                gameState.money -= price;
+                gameState.buildingLevel = targetLevel;
+                gameState.isRented = isRent;
+                logActivity(`Přešel jsi na: ${b.name} (${isRent ? 'PRONÁJEM' : 'VLASTNICTVÍ'})`);
+                updateUI();
+                rebuild3DScene();
+            } else { alert("Nemáš dostatek peněz!"); }
+        }
+
+        function takeLoan(amount) {
+            let limits = [10000, 50000, 150000, 500000];
+            let limit = limits[gameState.buildingLevel - 1];
+            if (gameState.loan + amount > limit) { alert(`Banka ti nepůjčí! Úvěrový limit je ${limit.toLocaleString()} Kč.`); return; }
+            gameState.loan += Math.floor(amount * 1.15);
+            gameState.money += amount;
+            logActivity(`Přijata půjčka ${amount.toLocaleString()} Kč.`);
+            updateUI();
+        }
+
+        function payLoan(mode) {
+            if (gameState.loan <= 0) return;
+            let payAmt = mode === 'full' ? gameState.loan : mode;
+            if (gameState.money >= payAmt) {
+                gameState.money -= payAmt;
+                gameState.loan -= payAmt;
+                logActivity(`Splaceno ${payAmt.toLocaleString()} Kč z půjčky.`);
+                updateUI();
+            } else { alert("Nemáš dostatek peněz na tuto splátku!"); }
+        }
+
+        function logActivity(text) {
+            let el = document.getElementById('activity-log');
+            el.innerHTML = `> ${text}<br>` + el.innerHTML;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('btn-tab-' + tabId).classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+            if (tabId === 'factory') { onWindowResize(); }
+        }
+
+        function renderBuildingOptions() {
+            let container = document.getElementById('building-options');
+            container.innerHTML = '';
+            buildingsData.forEach(b => {
+                if (b.level === 1) return;
+                let isCurrent = gameState.buildingLevel === b.level;
+                let card = document.createElement('div');
+                card.className = 'bank-box';
+                card.innerHTML = `
+                    <h4 style="color:#f59e0b;">${b.name}</h4>
+                    <p style="font-size:12px; color:#cbd5e1;">Limity stanovišť: Pily: ${b.caps.saw} | Olepování: ${b.caps.edge} | CNC: ${b.caps.cnc}</p>
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <button class="action-btn" ${isCurrent ? 'disabled' : ''} onclick="upgradeBuildingChoice(${b.level}, true)">Pronajmout (${b.rentPrice.toLocaleString()} Kč/měsíc)</button>
+                        <button class="action-btn" style="background-color:#0284c7;" ${isCurrent ? 'disabled' : ''} onclick="upgradeBuildingChoice(${b.level}, false)">Koupit (${b.buyPrice.toLocaleString()} Kč)</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderMachines() {
+            let container = document.getElementById('machines-list');
+            container.innerHTML = '';
+            let curB = buildingsData[gameState.buildingLevel - 1];
+            for (let key in gameState.machines) {
+                let m = gameState.machines[key];
+                let isUnlocked = gameState.buildingLevel >= m.reqLevel;
+                let curCatCount = getCategoryCount(m.category);
+                let hasCapSpace = curCatCount < curB.caps[m.category];
+                let canAfford = isUnlocked && hasCapSpace && gameState.money >= m.price;
+                let card = document.createElement('div');
+                card.className = `item-card ${isUnlocked ? '' : 'locked'}`;
+                card.innerHTML = `
+                    <div>
+                        <span class="brand ${m.brand === 'HOMAG' ? 'brand-homag' : 'brand-barbaric'}">${m.brand}</span>
+                        <h4 style="font-size:14px;">${m.name} (Vlastněno: ${m.count})</h4>
+                        <p style="font-size:11px; color:#38bdf8;">Obsazeno: ${curCatCount} / ${curB.caps[m.category]}</p>
+                    </div>
+                    <div>
+                        <button class="action-btn" ${canAfford ? '' : 'disabled'} onclick="buyMachine('${key}')">
+                            ${!isUnlocked ? `Lvl ${m.reqLevel}` : (!hasCapSpace ? 'Plno' : `Koupit (${m.price.toLocaleString()} Kč)`)}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+        }
+
+        function renderWorkers() {
+            let container = document.getElementById('workers-list');
+            container.innerHTML = '';
+            gameState.availableWorkers.forEach(w => {
+                let card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `
+                    <div><h4 style="font-size:14px;">${w.name} (${w.wage} Kč/hod)</h4></div>
+                    <div><button class="action-btn" ${gameState.money >= w.hireCost ? '' : 'disabled'} onclick="hireWorker(${w.id})">Najmout za ${w.hireCost.toLocaleString()} Kč</button></div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderJobs() {
+            let container = document.getElementById('jobs-list');
+            container.innerHTML = '';
+            gameState.availableJobs.forEach(j => {
+                let card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `
+                    <div><h4 style="font-size:13px;">${j.title} (${j.client})</h4><p style="font-size:11px; color:#4ade80;">Odměna: +${j.reward.toLocaleString()} Kč</p></div>
+                    <div><button class="action-btn" onclick="acceptJob(${j.id})">Přijmout</button></div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderActiveJobs() {
+            let container = document.getElementById('active-jobs-list');
+            container.innerHTML = '';
+            if (gameState.activeJobs.length === 0) {
+                container.innerHTML = '<div style="font-size:11px; color:#64748b;">Žádná aktivní zakázka</div>';
+                return;
+            }
+            gameState.activeJobs.forEach(j => {
+                let card = document.createElement('div');
+                card.style.cssText = 'background:#0f172a; padding:8px; border-radius:6px; margin-bottom:6px; border:1px solid #334155;';
+                card.innerHTML = `<div style="font-size:11px; font-weight:bold; display:flex; justify-content:space-between;"><span>${j.title}</span><span style="color:#4ade80;">+${j.reward.toLocaleString()} Kč</span></div>`;
+                container.appendChild(card);
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('stat-money').innerText = Math.floor(gameState.money).toLocaleString() + " Kč";
+            document.getElementById('stat-pps').innerText = Math.floor(calculatePPS()).toLocaleString() + " Kč/s";
+            let curB = buildingsData[gameState.buildingLevel - 1];
+            document.getElementById('stat-workers').innerText = `${gameState.workers.length} / ${curB.maxWorkers}`;
+            document.getElementById('building-name').innerText = `${curB.name} (${gameState.isRented ? 'Nájem' : 'Vlastní'})`;
+            document.getElementById('bill-unpaid').innerText = `${gameState.unpaidBill.toLocaleString()} Kč`;
+            document.getElementById('loan-current').innerText = `${gameState.loan.toLocaleString()} Kč`;
+            renderMachines(); renderWorkers(); renderJobs(); renderActiveJobs(); renderBuildingOptions();
+        }
+
+        /* --- PLNĚ OTOČNÝ 3D ENGINE S ORBITAL CONTROLS --- */
+        let scene, camera, renderer, controls;
+        let factoryObjects = [];
+
+        function init3D() {
+            const container = document.getElementById('webgl-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(12, 15, 18);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Ovladač pro otáčení myší ze všech stran
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05; // Nepustit pod podlahu
+
+            // Světla
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            dirLight.position.set(15, 25, 15);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            rebuild3DScene();
+            animate3D();
+        }
+
+        function rebuild3DScene() {
+            factoryObjects.forEach(obj => scene.remove(obj));
+            factoryObjects = [];
+
+            // 1. Podlaha haly
+            const floorGeo = new THREE.PlaneGeometry(16, 16);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            factoryObjects.push(floor);
+
+            // 2. Expediční kamion venku
+            const truckGroup = new THREE.Group();
+            const cabinGeo = new THREE.BoxGeometry(1.5, 1.2, 2);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8 });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(-5, 0.6, 5);
+            truckGroup.add(cabin);
+
+            const trailerGeo = new THREE.BoxGeometry(2, 1.5, 4);
+            const trailerMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
+            const trailer = new THREE.Mesh(trailerGeo, trailerMat);
+            trailer.position.set(-5, 0.75, 2.5);
+            truckGroup.add(trailer);
+            scene.add(truckGroup);
+            factoryObjects.push(truckGroup);
+
+            // 3. Vykreslení zakoupených 3D strojů
+            for (let key in gameState.machines) {
+                let m = gameState.machines[key];
+                if (m.count > 0) {
+                    for (let i = 0; i < m.count; i++) {
+                        const machineGroup = new THREE.Group();
+                        
+                        const baseGeo = new THREE.BoxGeometry(1.8, 0.8, 1.2);
+                        const baseMat = new THREE.MeshStandardMaterial({ color: m.color });
+                        const base = new THREE.Mesh(baseGeo, baseMat);
+                        base.position.set(m.x + (i * 0.5), 0.4, m.z + (i * 0.5));
+                        machineGroup.add(base);
+
+                        const bladeGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+                        const bladeMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, metalness: 0.5 });
+                        const blade = new THREE.Mesh(bladeGeo, bladeMat);
+                        blade.rotation.z = Math.PI / 2;
+                        blade.position.set(m.x + (i * 0.5), 0.9, m.z + (i * 0.5));
+                        machineGroup.add(blade);
+
+                        scene.add(machineGroup);
+                        factoryObjects.push(machineGroup);
+                    }
+                }
+            }
+
+            // 4. 3D Zaměstnanci
+            gameState.workers.forEach((w, idx) => {
+                const workerGroup = new THREE.Group();
+                const bodyGeo = new THREE.CylinderGeometry(0.25, 0.25, 1.2, 12);
+                const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b });
+                const body = new THREE.Mesh(bodyGeo, bodyMat);
+                body.position.set(-2 + (idx * 1.5), 0.6, 2);
+                workerGroup.add(body);
+
+                scene.add(workerGroup);
+                factoryObjects.push(workerGroup);
+            });
+        }
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            if (controls) controls.update();
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('webgl-container');
+            if (container && renderer && camera) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        }
+
+        // Časový loop: 1 měsíc = 15 minut
+        setInterval(() => {
+            gameState.minute += 48;
+            if (gameState.minute >= 60) { gameState.minute -= 60; gameState.hour++; }
+            if (gameState.hour >= 24) {
+                gameState.hour = 0; gameState.day++;
+                let currentMonth = monthsList[gameState.monthIndex];
+                if (gameState.day > currentMonth.days) {
+                    gameState.day = 1;
+                    gameState.monthIndex = (gameState.monthIndex + 1) % 12;
+                    let rent = gameState.isRented ? buildingsData[gameState.buildingLevel - 1].rentPrice : 0;
+                    let elec = calculateElecCost() * 10;
+                    let monthBill = rent + elec;
+                    if (gameState.unpaidBill > 0) { gameState.hasPower = false; document.getElementById('power-overlay').style.display = 'block'; }
+                    gameState.unpaidBill += monthBill;
+                    document.getElementById('popup-amount').innerText = `${gameState.unpaidBill.toLocaleString()} Kč`;
+                    document.getElementById('billPopup').style.display = 'block';
+                    logActivity(`⚠️ UPOZORNĚNÍ: Konec měsíce! Přišla nová faktura na ${monthBill.toLocaleString()} Kč!`);
+                }
+            }
+
+            let curM = monthsList[gameState.monthIndex];
+            let clockStr = `${gameState.day}. ${curM.name} | ` + (gameState.hour < 10 ? '0' : '') + gameState.hour + ':' + (gameState.minute < 10 ? '0' : '') + gameState.minute;
+            document.getElementById('clock').innerText = clockStr;
+
+            let shiftEl = document.getElementById('shift-name');
+            if (gameState.hour >= 6 && gameState.hour < 14) { shiftEl.innerText = "☀️ Ranní směna"; document.body.classList.remove('night'); }
+            else if (gameState.hour >= 14 && gameState.hour < 22) { shiftEl.innerText = "⛅ Odpolední směna"; document.body.classList.remove('night'); }
+            else { shiftEl.innerText = "🌙 Noční směna"; document.body.classList.add('night'); }
+
+            let pps = calculatePPS();
+            if (gameState.hasPower) {
+                gameState.money += pps * 0.1;
+                if (pps > 0 && gameState.activeJobs.length > 0) {
+                    for (let i = gameState.activeJobs.length - 1; i >= 0; i--) {
+                        let j = gameState.activeJobs[i];
+                        j.progress = (j.progress || 0) + 0.1;
+                        if (j.progress >= j.duration) {
+                            gameState.money += j.reward;
+                            logActivity(`DOKONČENO: ${j.title} (+${j.reward.toLocaleString()} Kč)`);
+                            gameState.activeJobs.splice(i, 1);
+                            renderActiveJobs();
+                        }
+                    }
+                }
+            }
+            updateUI();
+        }, 1000);
+
+        window.onload = () => {
+            init3D();
+            updateUI();
+        };
+        window.onresize = onWindowResize;
+    </script>
+</body>
+</html>
